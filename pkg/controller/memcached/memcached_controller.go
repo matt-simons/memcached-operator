@@ -2,6 +2,7 @@ package memcached
 
 import (
 	"context"
+	"reflect"
 
 	cachev1alpha1 "github.com/operator-framework/operator-sdk-samples/go/memcached-operator/pkg/apis/cache/v1alpha1"
 
@@ -151,8 +152,27 @@ func (r *ReconcileMemcached) Reconcile(request reconcile.Request) (reconcile.Res
 
 	// Update the Memcached status with the pod names
 	// List the pods for this memcached's deployment
+	podList := &corev1.PodList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(memcached.Namespace),
+		client.MatchingLabels(labelsForMemcached(memcached.Name)),
+	}
+	err = r.client.List(context.TODO(), podList, listOpts...)
+	if err != nil {
+		reqLogger.Error(err, "Failed to list pods.", "Memcached.Namespace", memcached.Namespace, "Memcached.Name", memcached.Name)
+		return reconcile.Result{}, err
+	}
+	podNames := getPodNames(podList.Items)
 
 	// Update status.Nodes if needed
+	if !reflect.DeepEqual(podNames, memcached.Status.Nodes) {
+		memcached.Status.Nodes = podNames
+		err := r.client.Status().Update(context.TODO(), memcached)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update Memcached status.")
+			return reconcile.Result{}, err
+		}
+	}
 
 	return reconcile.Result{}, nil
 }
