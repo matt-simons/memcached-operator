@@ -121,6 +121,15 @@ func (r *ReconcileMemcached) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	// Ensure the deployment size is the same as the spec
+	size := memcached.Spec.Size
+	if *deployment.Spec.Replicas != size {
+		deployment.Spec.Replicas = &size
+		err = r.client.Update(context.TODO(), deployment)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update Deployment.", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+			return reconcile.Result{}, err
+		}
+	}
 
 	// Check if the Service already exists, if not create a new one
 	// NOTE: The Service is used to expose the Deployment. However, the Service is not required at all for the memcached example to work. The purpose is to add more examples of what you can do in your operator project.
